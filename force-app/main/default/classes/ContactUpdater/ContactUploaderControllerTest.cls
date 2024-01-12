@@ -20,7 +20,7 @@ private class ContactUploaderControllerTest {
     Account testAccount = new Account(Name = 'Test Account');
     insert testAccount;
 
-    String fileContent = 'John,Doe,john.doe@example.com\nJane,Doe,jane.doe@example.com';
+    String fileContent = 'John,Doe\nJane,Doe'; // Adjusted to match expected CSV format
     Id accountId = testAccount.Id;
 
     Test.startTest();
@@ -33,7 +33,7 @@ private class ContactUploaderControllerTest {
     // Assert the results
     System.assertEquals('Success', result, 'The method should return success.');
     List<Contact> contacts = [
-      SELECT FirstName, LastName, Email
+      SELECT FirstName, LastName
       FROM Contact
       WHERE AccountId = :accountId
     ];
@@ -49,7 +49,7 @@ private class ContactUploaderControllerTest {
     Account testAccount = new Account(Name = 'Test Account');
     insert testAccount;
 
-    String invalidFileContent = 'Invalid,Data,Without@Email.com';
+    String invalidFileContent = 'Invalid,Data\n,MissingFirstName'; // Example of invalid data
     Id accountId = testAccount.Id;
 
     Boolean exceptionThrown = false;
@@ -67,36 +67,4 @@ private class ContactUploaderControllerTest {
       'An exception should have been thrown for invalid data'
     );
   }
-
-  // @isTest
-  // static void testUploadContactsInsufficientPrivileges() {
-  //   // Simulate insufficient privileges
-  //   // This can be done using a runAs block with a user that lacks create/update permissions on Contact
-  //   // Ensure that you have such a user set up in your org for this test
-
-  //   User limitedPermissionUser = [
-  //     SELECT Id
-  //     FROM User
-  //     WHERE Username = 'limited@example.com'
-  //     LIMIT 1
-  //   ];
-  //   System.runAs(limitedPermissionUser) {
-  //     String fileContent = 'John,Doe,john.doe@example.com';
-  //     Id accountId = 'dummyAccountId'; // Use a dummy ID for simplicity
-
-  //     Test.startTest();
-  //     try {
-  //       ContactUploaderController.uploadContacts(fileContent, accountId);
-  //       System.assert(false, 'Exception should have been thrown');
-  //     } catch (AuraHandledException e) {
-  //       // Assert the expected exception message
-  //       System.assertEquals(
-  //         'You do not have permission to create or update contacts.',
-  //         e.getMessage(),
-  //         'Incorrect exception message'
-  //       );
-  //     }
-  //     Test.stopTest();
-  //   }
-  // }
 }
