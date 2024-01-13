@@ -2,7 +2,6 @@ import { LightningElement, wire, track } from "lwc";
 import uploadContacts from "@salesforce/apex/ContactUploaderController.uploadContacts";
 import getAccountOptions from "@salesforce/apex/ContactUploaderController.getAccountOptions";
 import { ShowToastEvent } from "lightning/platformShowToastEvent";
-import Longitude from "@salesforce/schema/Asset.Longitude";
 
 export default class ContactUploader extends LightningElement {
   @track file;
@@ -52,14 +51,15 @@ export default class ContactUploader extends LightningElement {
     const lines = content.split(/\r\n|\n/);
     const regex = /^[a-zA-Z -]+$/; // Adjusted regex to disallow numbers and special characters
     for (let i = 1; i < lines.length; i++) {
-      // Start from 1 to skip header
+      // Start from 1 to skip header row
       const fields = lines[i].split(",");
       if (
         fields.length !== 2 ||
         !fields[0].match(regex) ||
         !fields[1].match(regex)
       ) {
-        this.errorMessage = `Invalid or missing data in line ${i + 1}`;
+        this.errorMessage = `Invalid or missing data in line ${i + 1}.
+        Fields must be not empty, in english and may contain only letters, spaces and/or dashes.`;
         return false;
       }
     }
@@ -91,7 +91,13 @@ export default class ContactUploader extends LightningElement {
         fileContent: this.file,
         accountId: this.accountId
       });
-      this.showToast("Success", "Contacts uploaded successfully", "success");
+      this.showToast(
+        "Success",
+        `Contacts uploaded successfully, 
+        proceeding to get further information via cellebrite API.
+        This may take a while.`,
+        "success"
+      );
     } catch (error) {
       console.log(`error: ${error}`);
       let message = "Error uploading contacts";
