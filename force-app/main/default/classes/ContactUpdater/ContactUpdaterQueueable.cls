@@ -8,6 +8,9 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
   }
 
   public void execute(QueueableContext context) {
+    // Prevent the trigger from processing these updates
+    TriggerContext.shouldProcess = false;
+
     List<Contact> contactsToProcess = [
       SELECT Id, FirstName, LastName, Email, MobilePhone, Birthdate, Description
       FROM Contact
@@ -27,30 +30,26 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
 
     for (Contact contact : contacts) {
       if (calloutsMade >= API_CALLOUT_LIMIT) {
-        System.debug(
-          'callout reached, ' +
-            calloutsMade +
-            ' calls out of ' +
-            API_CALLOUT_LIMIT
-        );
+        System.debug('Callout limit reached: ' + calloutsMade);
         break; // Stop processing if we've reached the API callout limit
       }
+
       Map<String, Object> apiResponse = getContactDataFromAPI(contact);
-      System.debug('apiResponse: ' + apiResponse);
-      if (isValidApiResponse(apiResponse)) {
-        updateContactFields(contact, apiResponse);
-        contactsToUpdate.add(contact);
-        calloutsMade++;
-      } else {
-        logApiResponseErrors(contact, apiResponse);
-      }
+      System.debug('API Response: ' + apiResponse);
+      // if (isValidApiResponse(apiResponse)) {
+      updateContactFields(contact, apiResponse);
+      contactsToUpdate.add(contact);
+      calloutsMade++;
+      // }
+      // else {
+      //   logApiResponseErrors(contact, apiResponse);
+      // }
     }
-    System.debug('contactsToProcess: ' + contacts);
     return contactsToUpdate;
   }
 
   private Boolean isValidApiResponse(Map<String, Object> apiResponse) {
-    return apiResponse != null;
+    return apiResponse != null && apiResponse.containsKey('candidate');
   }
 
   private void logApiResponseErrors(
@@ -74,8 +73,7 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
   private void updateContactsIfAny(List<Contact> contactsToUpdate) {
     if (!contactsToUpdate.isEmpty()) {
       try {
-        System.debug('contactsToUpdate: ' + contactsToUpdate);
-        update contactsToUpdate;
+        update contactsToUpdate; // Perform the update
       } catch (DmlException e) {
         System.debug('Error updating contacts: ' + e.getMessage());
       }
@@ -86,16 +84,22 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
     Contact contact,
     Map<String, Object> apiResponse
   ) {
-    System.debug('apiResponse: ' + apiResponse);
-    System.debug('email: ' + apiResponse.get('Email'));
-
-    contact.Email = (String) apiResponse.get('Email');
-    contact.MobilePhone = (String) apiResponse.get('Mobile');
-    contact.Birthdate = (apiResponse.get('Birthdate') != null)
-      ? Date.valueOf((String) apiResponse.get('Birthdate'))
-      : null;
-    contact.Description = (String) apiResponse.get('Description');
-    System.debug('contact: ' + contact);
+    // Check if the 'candidate' key exists and is a map
+    if (apiResponse != null) {
+      Map<String, Object> candidateData = (Map<String, Object>) apiResponse;
+      contact.Email = (String) candidateData.get('Email');
+      contact.MobilePhone = (String) candidateData.get('Mobile');
+      contact.Birthdate = (candidateData.get('Birthdate') != null)
+        ? Date.valueOf((String) candidateData.get('Birthdate'))
+        : null;
+      contact.Description = (String) candidateData.get('Description');
+    } else {
+      // Handle the case where 'candidate' is not in the expected format
+      System.debug(
+        'The candidate data is not in the expected format or is missing: ' +
+        apiResponse
+      );
+    }
   }
 
   private Map<String, Object> getContactDataFromAPI(Contact contact) {
@@ -120,12 +124,12 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
         Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(
           response.getBody()
         );
+        // System.debug('responseMap line 131: ' + responseMap.get('candidate'));
         if (responseMap.containsKey('candidate')) {
-          System.debug('responseMap: ' + responseMap.get('candidate'));
           return (Map<String, Object>) responseMap.get('candidate');
         } else {
           System.debug(
-            'Candidate data not found in response for contact ' +
+            'No candidate data found in API response for contact ' +
             formatContactDetails(contact)
           );
         }
