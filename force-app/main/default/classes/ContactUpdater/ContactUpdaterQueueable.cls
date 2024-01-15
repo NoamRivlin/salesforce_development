@@ -8,75 +8,51 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
   }
 
   public void execute(QueueableContext context) {
-    // Prevent the trigger from processing these updates
-    TriggerContext.shouldProcess = false;
+    TriggerContext.shouldProcess = false; // Prevent the trigger from reprocessing
 
     List<Contact> contactsToProcess = [
       SELECT Id, FirstName, LastName, Email, MobilePhone, Birthdate, Description
       FROM Contact
       WHERE Id IN :contactIds
     ];
-    if (contactsToProcess.isEmpty()) {
-      return; // Exit if there are no contacts to process
-    }
 
-    List<Contact> contactsToUpdate = processContacts(contactsToProcess);
-    updateContactsIfAny(contactsToUpdate);
+    if (!contactsToProcess.isEmpty()) {
+      processAndUpdateContacts(contactsToProcess);
+    }
   }
 
-  private List<Contact> processContacts(List<Contact> contacts) {
+  private void processAndUpdateContacts(List<Contact> contacts) {
     List<Contact> contactsToUpdate = new List<Contact>();
     Integer calloutsMade = 0;
 
     for (Contact contact : contacts) {
       if (calloutsMade >= API_CALLOUT_LIMIT) {
         System.debug('Callout limit reached: ' + calloutsMade);
-        break; // Stop processing if we've reached the API callout limit
+        break;
       }
 
       Map<String, Object> apiResponse = getContactDataFromAPI(contact);
-      System.debug('API Response: ' + apiResponse);
-      // if (isValidApiResponse(apiResponse)) {
-      updateContactFields(contact, apiResponse);
-      contactsToUpdate.add(contact);
-      calloutsMade++;
-      // }
-      // else {
-      //   logApiResponseErrors(contact, apiResponse);
-      // }
-    }
-    return contactsToUpdate;
-  }
-
-  private Boolean isValidApiResponse(Map<String, Object> apiResponse) {
-    return apiResponse != null && apiResponse.containsKey('candidate');
-  }
-
-  private void logApiResponseErrors(
-    Contact contact,
-    Map<String, Object> apiResponse
-  ) {
-    String contactDetails = formatContactDetails(contact);
-    if (apiResponse == null) {
-      System.debug('No API response received for contact ' + contactDetails);
-    } else if (!apiResponse.containsKey('candidate')) {
-      System.debug(
-        'No candidate data found in API response for contact ' + contactDetails
-      );
-    }
-  }
-
-  private String formatContactDetails(Contact contact) {
-    return contact.Id + ' ' + contact.FirstName + ' ' + contact.LastName;
-  }
-
-  private void updateContactsIfAny(List<Contact> contactsToUpdate) {
-    if (!contactsToUpdate.isEmpty()) {
-      try {
-        update contactsToUpdate; // Perform the update
-      } catch (DmlException e) {
-        System.debug('Error updating contacts: ' + e.getMessage());
+      if (apiResponse != null) {
+        updateContactFields(contact, apiResponse);
+        contactsToUpdate.add(contact);
+        calloutsMade++;
+      } else {
+        System.debug(
+          'No valid API response for contact ' + formatContactDetails(contact)
+        );
       }
+    }
+
+    if (!contactsToUpdate.isEmpty()) {
+      updateContacts(contactsToUpdate);
+    }
+  }
+
+  private void updateContacts(List<Contact> contactsToUpdate) {
+    try {
+      update contactsToUpdate;
+    } catch (DmlException e) {
+      System.debug('Error updating contacts: ' + e.getMessage());
     }
   }
 
@@ -84,22 +60,16 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
     Contact contact,
     Map<String, Object> apiResponse
   ) {
-    // Check if the 'candidate' key exists and is a map
-    if (apiResponse != null) {
-      Map<String, Object> candidateData = (Map<String, Object>) apiResponse;
-      contact.Email = (String) candidateData.get('Email');
-      contact.MobilePhone = (String) candidateData.get('Mobile');
-      contact.Birthdate = (candidateData.get('Birthdate') != null)
-        ? Date.valueOf((String) candidateData.get('Birthdate'))
-        : null;
-      contact.Description = (String) candidateData.get('Description');
-    } else {
-      // Handle the case where 'candidate' is not in the expected format
-      System.debug(
-        'The candidate data is not in the expected format or is missing: ' +
-        apiResponse
-      );
-    }
+    contact.Email = (String) apiResponse.get('Email');
+    contact.MobilePhone = (String) apiResponse.get('Mobile');
+    contact.Birthdate = (apiResponse.get('Birthdate') != null)
+      ? Date.valueOf((String) apiResponse.get('Birthdate'))
+      : null;
+    contact.Description = (String) apiResponse.get('Description');
+  }
+
+  private String formatContactDetails(Contact contact) {
+    return contact.Id + ' ' + contact.FirstName + ' ' + contact.LastName;
   }
 
   private Map<String, Object> getContactDataFromAPI(Contact contact) {
@@ -124,12 +94,11 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
         Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(
           response.getBody()
         );
-        // System.debug('responseMap line 131: ' + responseMap.get('candidate'));
         if (responseMap.containsKey('candidate')) {
           return (Map<String, Object>) responseMap.get('candidate');
         } else {
           System.debug(
-            'No candidate data found in API response for contact ' +
+            'Candidate data not found in API response for contact ' +
             formatContactDetails(contact)
           );
         }

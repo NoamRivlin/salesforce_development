@@ -8,6 +8,9 @@ export default class ContactUploader extends LightningElement {
   @track accountId;
   @track accountOptions = [];
   @track errorMessage;
+  @track isUploadButtonDisabled = true;
+
+  permissionedAccountsList = ["Onboarding Manager"];
 
   @wire(getAccountOptions)
   handleAccountData({ error, data }) {
@@ -67,8 +70,28 @@ export default class ContactUploader extends LightningElement {
   }
 
   handleAccountChange(event) {
-    console.log("accountId: " + event.detail.value);
-    this.accountId = event.detail.value;
+    const selectedAccountId = event.detail.value;
+    const selectedAccount = this.accountOptions.find(
+      (account) => account.value === selectedAccountId
+    );
+
+    if (
+      !selectedAccount ||
+      !this.permissionedAccountsList.includes(selectedAccount.label)
+    ) {
+      // Account does not have permission, show toast and keep upload button disabled
+      this.showToast(
+        "Permission Denied",
+        "You do not have permission to upload to this account.",
+        "error"
+      );
+      this.isUploadButtonDisabled = true;
+      this.accountId = null; // Ensure accountId is not set to an unauthorized account
+      return;
+    }
+    // Account has permission, set accountId and enable upload button
+    this.accountId = selectedAccountId;
+    this.isUploadButtonDisabled = false;
   }
 
   handleUploadContacts() {
