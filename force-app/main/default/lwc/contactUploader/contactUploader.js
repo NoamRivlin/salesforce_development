@@ -28,12 +28,31 @@ export default class ContactUploader extends LightningElement {
     }
   }
 
+  // async readFileContent(file) {
+  //   const fileContent = await this.readFileAsText(file);
+  //   if (this.isValidCsv(fileContent)) {
+  //     this.file = fileContent;
+  //   } else {
+  //     this.showToast("Invalid File", this.errorMessage, "error");
+  //   }
+  // }
+
   async readFileContent(file) {
-    const fileContent = await this.readFileAsText(file);
-    if (this.isValidCsv(fileContent)) {
-      this.file = fileContent;
-    } else {
-      this.showToast("Invalid File", this.errorMessage, "error");
+    try {
+      let fileContent = await this.readFileAsText(file);
+      let cleanedContent = this.removeDuplicateContacts(fileContent);
+      if (cleanedContent) {
+        this.file = cleanedContent;
+      } else {
+        this.showToast(
+          "Invalid File",
+          "The file contains invalid data or format.",
+          "error"
+        );
+      }
+    } catch (error) {
+      this.errorMessage = `Error reading file: ${error.message}`;
+      this.showToast("Error reading file", this.errorMessage, "error");
     }
   }
 
@@ -50,23 +69,58 @@ export default class ContactUploader extends LightningElement {
     });
   }
 
-  isValidCsv(content) {
+  // isValidCsv(content) {
+  //   const lines = content.split(/\r\n|\n/);
+  //   const regex = /^[a-zA-Z -]+$/; // Adjusted regex to disallow numbers and special characters
+  //   for (let i = 1; i < lines.length; i++) {
+  //     // Start from 1 to skip header row
+  //     const fields = lines[i].split(",");
+  //     if (
+  //       fields.length !== 2 ||
+  //       !fields[0].match(regex) ||
+  //       !fields[1].match(regex)
+  //     ) {
+  //       this.errorMessage = `Invalid or missing data in line ${i + 1}.
+  //       Fields must be not empty, in english and may contain only letters, spaces and/or dashes.`;
+  //       return false;
+  //     }
+  //   }
+  //   return true;
+  // }
+
+  removeDuplicateContacts(content) {
     const lines = content.split(/\r\n|\n/);
-    const regex = /^[a-zA-Z -]+$/; // Adjusted regex to disallow numbers and special characters
-    for (let i = 1; i < lines.length; i++) {
-      // Start from 1 to skip header row
+    const regex = /^[a-zA-Z -]+$/; // Regex to allow letters, spaces, and dashes
+    const uniqueContacts = new Set();
+    let cleanedLines = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      if (i === 0 || lines[i].trim() === "") {
+        // Preserve header and skip empty lines
+        cleanedLines.push(lines[i]);
+        continue;
+      }
+
       const fields = lines[i].split(",");
       if (
         fields.length !== 2 ||
         !fields[0].match(regex) ||
         !fields[1].match(regex)
       ) {
-        this.errorMessage = `Invalid or missing data in line ${i + 1}.
-        Fields must be not empty, in english and may contain only letters, spaces and/or dashes.`;
-        return false;
+        // Skip invalid lines
+        continue;
+      }
+
+      const contactKey = `${fields[0].trim().toLowerCase()} ${fields[1]
+        .trim()
+        .toLowerCase()}`;
+      if (!uniqueContacts.has(contactKey)) {
+        uniqueContacts.add(contactKey);
+        cleanedLines.push(lines[i]);
       }
     }
-    return true;
+
+    return cleanedLines.length > 1 ? cleanedLines.join("\n") : null;
   }
 
   handleAccountChange(event) {
