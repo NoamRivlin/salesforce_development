@@ -94,19 +94,6 @@ public with sharing class ContactUploaderController {
       );
     }
 
-    // Create a map to hold unique contact keys and their corresponding contacts
-    Map<String, Contact> contactMap = new Map<String, Contact>();
-    for (Contact contact : contacts) {
-      String contactKey =
-        contact.FirstName +
-        ':' +
-        contact.LastName +
-        ':' +
-        contact.AccountId;
-      contactMap.put(contactKey, contact);
-    }
-    System.debug('Contact map: ' + contactMap);
-
     // Query existing contacts
     List<Contact> existingContacts = [
       SELECT Id, FirstName, LastName, AccountId

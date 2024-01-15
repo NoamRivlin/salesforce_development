@@ -4,9 +4,6 @@ public class ContactTriggerHandler {
     if (!TriggerContext.shouldProcess) {
       return;
     }
-
-    // Your existing logic here
-    // Enqueue the job
     System.enqueueJob(new ContactUpdaterQueueable(contactIds));
   }
 }

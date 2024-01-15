@@ -2,6 +2,7 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
   private List<Id> contactIds;
   private static final Integer API_CALLOUT_LIMIT =
     Limits.getLimitCallouts() - Limits.getCallouts();
+  private static final String API_ENDPOINT = 'https://clb-candidates-data-5d5991b93b50.herokuapp.com/getContacts';
 
   public ContactUpdaterQueueable(List<Id> contactIds) {
     this.contactIds = contactIds;
@@ -58,26 +59,49 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
 
   private void updateContactFields(
     Contact contact,
-    Map<String, Object> apiResponse
+    Map<String, Object> candidate
   ) {
-    contact.Email = (String) apiResponse.get('Email');
-    contact.MobilePhone = (String) apiResponse.get('Mobile');
-    contact.Birthdate = (apiResponse.get('Birthdate') != null)
-      ? Date.valueOf((String) apiResponse.get('Birthdate'))
-      : null;
-    contact.Description = (String) apiResponse.get('Description');
+    String email = (String) candidate.get('Email');
+    String mobile = (String) candidate.get('Mobile');
+    String birthdate = (String) candidate.get('Birthdate');
+    String description = (String) candidate.get('Description');
+
+    if (shouldUpdateField(contact.Email, email)) {
+      contact.Email = email;
+    }
+    if (shouldUpdateField(contact.MobilePhone, mobile)) {
+      contact.MobilePhone = mobile;
+    }
+    if (shouldUpdateField(contact.Birthdate, birthdate)) {
+      contact.Birthdate = (birthdate != null) ? Date.valueOf(birthdate) : null;
+    }
+    if (shouldUpdateField(contact.Description, description)) {
+      contact.Description = description;
+    }
   }
 
-  private String formatContactDetails(Contact contact) {
-    return contact.Id + ' ' + contact.FirstName + ' ' + contact.LastName;
+  private void updateMissingCandidate(
+    Contact contact,
+    Map<String, Object> candidate
+  ) {
+    String description = (String) candidate.get('Description');
+    if (
+      description != null && !description.contains('Candidate not found in API')
+    ) {
+      contact.Description = description + ' (Candidate not found in API)';
+    }
+    // if user wouldve manually updated the description field,
+    // then it would be overwritten by the API default not found behavior
+    // and that would suck so i commented it out
+    // if (shouldUpdateField(contact.Description, description)) {
+    //   contact.Description = description;
+    // }
   }
 
   private Map<String, Object> getContactDataFromAPI(Contact contact) {
     Http http = new Http();
     HttpRequest request = new HttpRequest();
-    request.setEndpoint(
-      'https://clb-candidates-data-5d5991b93b50.herokuapp.com/getContacts'
-    );
+    request.setEndpoint(API_ENDPOINT);
     request.setMethod('POST');
     request.setHeader('Content-Type', 'application/json');
 
@@ -95,12 +119,13 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
           response.getBody()
         );
         if (responseMap.containsKey('candidate')) {
-          return (Map<String, Object>) responseMap.get('candidate');
-        } else {
-          System.debug(
-            'Candidate data not found in API response for contact ' +
-            formatContactDetails(contact)
+          Map<String, Object> candidate = (Map<String, Object>) responseMap.get(
+            'candidate'
           );
+          if (candidate != null && !candidate.isEmpty()) {
+            return candidate;
+          }
+          updateMissingCandidate(contact, candidate);
         }
       } else {
         System.debug(
@@ -120,4 +145,27 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
     }
     return null;
   }
+
+  private boolean shouldUpdateField(Object currentValue, Object newValue) {
+    if (newValue == null || String.isBlank(newValue.toString())) {
+      return false;
+    }
+    if (currentValue == null || String.isBlank(currentValue.toString())) {
+      return true;
+    }
+    return !currentValue.equals(newValue);
+  }
+
+  private String formatContactDetails(Contact contact) {
+    return contact.Id + ' ' + contact.FirstName + ' ' + contact.LastName;
+  }
 }
+
+/*
+for the updating of fields, its not 
+clear cut which is more important - the data from the API or the data in Salesforce.
+my code checks if in salesforce the field is null or blank, if it is, then it will update it with the data from the API.
+and if the field is null or blank in the API, then it will not update the field in salesforce. 
+
+*/
+
