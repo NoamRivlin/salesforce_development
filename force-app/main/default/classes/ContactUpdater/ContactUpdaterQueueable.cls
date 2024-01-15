@@ -79,11 +79,17 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
       contact.Description = description;
     }
   }
+
   private void updateMissingCandidate(
     Contact contact,
     Map<String, Object> candidate
   ) {
     String description = (String) candidate.get('Description');
+    if (
+      description != null && !description.contains('Candidate not found in API')
+    ) {
+      contact.Description = description + ' (Candidate not found in API)';
+    }
     // if user wouldve manually updated the description field,
     // then it would be overwritten by the API default not found behavior
     // and that would suck so i commented it out
