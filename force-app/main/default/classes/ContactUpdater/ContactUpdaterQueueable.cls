@@ -57,26 +57,14 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
     }
   }
 
-  // private void updateContactFields(
-  //   Contact contact,
-  //   Map<String, Object> apiResponse
-  // ) {
-  //   contact.Email = (String) apiResponse.get('Email');
-  //   contact.MobilePhone = (String) apiResponse.get('Mobile');
-  //   contact.Birthdate = (apiResponse.get('Birthdate') != null)
-  //     ? Date.valueOf((String) apiResponse.get('Birthdate'))
-  //     : null;
-  //   contact.Description = (String) apiResponse.get('Description');
-  // }
-
   private void updateContactFields(
     Contact contact,
-    Map<String, Object> apiResponse
+    Map<String, Object> candidate
   ) {
-    String email = (String) apiResponse.get('Email');
-    String mobile = (String) apiResponse.get('Mobile');
-    String birthdate = (String) apiResponse.get('Birthdate');
-    String description = (String) apiResponse.get('Description');
+    String email = (String) candidate.get('Email');
+    String mobile = (String) candidate.get('Mobile');
+    String birthdate = (String) candidate.get('Birthdate');
+    String description = (String) candidate.get('Description');
 
     if (shouldUpdateField(contact.Email, email)) {
       contact.Email = email;
@@ -90,6 +78,18 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
     if (shouldUpdateField(contact.Description, description)) {
       contact.Description = description;
     }
+  }
+  private void updateMissingCandidate(
+    Contact contact,
+    Map<String, Object> candidate
+  ) {
+    String description = (String) candidate.get('Description');
+    // if user wouldve manually updated the description field,
+    // then it would be overwritten by the API default not found behavior
+    // and that would suck so i commented it out
+    // if (shouldUpdateField(contact.Description, description)) {
+    //   contact.Description = description;
+    // }
   }
 
   private Map<String, Object> getContactDataFromAPI(Contact contact) {
@@ -113,12 +113,13 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
           response.getBody()
         );
         if (responseMap.containsKey('candidate')) {
-          return (Map<String, Object>) responseMap.get('candidate');
-        } else {
-          System.debug(
-            'Candidate data not found in API response for contact ' +
-            formatContactDetails(contact)
+          Map<String, Object> candidate = (Map<String, Object>) responseMap.get(
+            'candidate'
           );
+          if (candidate != null && !candidate.isEmpty()) {
+            return candidate;
+          }
+          updateMissingCandidate(contact, candidate);
         }
       } else {
         System.debug(
@@ -143,7 +144,7 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
     if (newValue == null || String.isBlank(newValue.toString())) {
       return false;
     }
-    if (currentValue == null) {
+    if (currentValue == null || String.isBlank(currentValue.toString())) {
       return true;
     }
     return !currentValue.equals(newValue);
