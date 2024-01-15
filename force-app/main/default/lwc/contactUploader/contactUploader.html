@@ -1,9 +1,9 @@
 <template>
   <lightning-card title="Contact Uploader" icon-name="standard:contact">
-    <div class="slds-var-m-around_medium">
+    <div class="slds-var-m-around_medium uploader-card">
       <lightning-input
         type="file"
-        label="Upload CSV File (fetching additional info on candidates via api is up to 100 candidates)"
+        label="Upload CSV File (fetching additional info on candidates via api is limited up to 100 candidates)"
         accept=".csv"
         onchange={handleFileChange}
       ></lightning-input>
@@ -13,6 +13,7 @@
         placeholder="Select Account"
         options={accountOptions}
         onchange={handleAccountChange}
+        class="account-select"
       >
       </lightning-combobox>
       <lightning-button

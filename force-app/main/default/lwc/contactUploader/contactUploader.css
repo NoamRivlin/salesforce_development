@@ -1,0 +1,14 @@
+.uploader-card {
+  margin: var(--lwc-spacingMedium);
+}
+
+lightning-input,
+lightning-combobox,
+lightning-button {
+  margin-bottom: var(--lwc-spacingMedium);
+  padding: var(--lwc-paddingSmall);
+}
+
+.account-select {
+  width: 60%;
+}
