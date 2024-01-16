@@ -37,11 +37,10 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
         updateContactFields(contact, apiResponse);
         contactsToUpdate.add(contact);
         calloutsMade++;
-      } else {
-        System.debug(
-          'No valid API response for contact ' + formatContactDetails(contact)
-        );
+        continue;
       }
+      updateMissingCandidateInAPI(contact);
+      calloutsMade++;
     }
 
     if (!contactsToUpdate.isEmpty()) {
@@ -80,22 +79,15 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
     }
   }
 
-  private void updateMissingCandidate(
-    Contact contact,
-    Map<String, Object> candidate
-  ) {
-    String description = (String) candidate.get('Description');
+  private void updateMissingCandidateInAPI(Contact contact) {
+    String description = (String) contact.get('Description');
     if (
-      description != null && !description.contains('Candidate not found in API')
+      description == null || !description.contains('Candidate not found in API')
     ) {
+      description = (description == null) ? '' : description;
       contact.Description = description + ' (Candidate not found in API)';
+      update contact;
     }
-    // if user wouldve manually updated the description field,
-    // then it would be overwritten by the API default not found behavior
-    // and that would suck so i commented it out
-    // if (shouldUpdateField(contact.Description, description)) {
-    //   contact.Description = description;
-    // }
   }
 
   private Map<String, Object> getContactDataFromAPI(Contact contact) {
@@ -125,7 +117,7 @@ public class ContactUpdaterQueueable implements Queueable, Database.AllowsCallou
           if (candidate != null && !candidate.isEmpty()) {
             return candidate;
           }
-          updateMissingCandidate(contact, candidate);
+          updateMissingCandidateInAPI(contact);
         }
       } else {
         System.debug(
