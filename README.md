@@ -1,18 +1,46 @@
-# Salesforce DX Project: Next Steps
+# Salesforce Contact Management System
 
-Now that you’ve created a Salesforce DX project, what’s next? Here are some documentation resources to get you started.
+This repository contains the Salesforce development project for managing contact information. It includes a Lightning Web Component (LWC) for bulk uploading contacts via CSV and an Apex class for integrating with an external API to update contact information.
 
-## How Do You Plan to Deploy Your Changes?
+## Features
 
-Do you want to deploy a set of changes, or create a self-contained application? Choose a [development model](https://developer.salesforce.com/tools/vscode/en/user-guide/development-models).
+### ContactUploader LWC
+- Allows users to upload a CSV file with contact details.
+- User-friendly interface to select the target Account ("Onboarding Manager").
+- Button to trigger the CSV upload and contact creation process.
+- Error handling for invalid CSV files or upload failures.
+- Apex backend processing to parse the CSV and create contacts efficiently.
 
-## Configure Your Salesforce DX Project
+### ContactUpdater Apex Class
+- Integrates with the Cellebrite API to update contact information.
+- Handles a list of contacts, making individual requests to the API.
+- Efficiently updates multiple contacts.
+- Manages scenarios where a candidate is not found in the API response.
 
-The `sfdx-project.json` file contains useful configuration information for your project. See [Salesforce DX Project Configuration](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_ws_config.htm) in the _Salesforce DX Developer Guide_ for details about this file.
+## Installation
 
-## Read All About It
+1. Clone this repository to your local machine or Salesforce environment.
+2. Deploy the components to your Salesforce org (ensure you have the necessary permissions and access).
+3. Configure the necessary settings (like the "Onboarding Manager" Account) in your Salesforce org.
 
-- [Salesforce Extensions Documentation](https://developer.salesforce.com/tools/vscode/)
-- [Salesforce CLI Setup Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_intro.htm)
-- [Salesforce DX Developer Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_intro.htm)
-- [Salesforce CLI Command Reference](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference.htm)
+## Usage
+
+### ContactUploader Component
+- Navigate to the component in your Salesforce org.
+- Select the "Onboarding Manager" Account.
+- Upload the CSV file with contact details.
+- Click the upload button to create contacts.
+
+### ContactUpdater Class
+- Used by the system to update contact information after CSV upload.
+- Can also be invoked manually via Apex for specific contact updates.
+
+## Configuration
+
+- Ensure the "Onboarding Manager" Account exists in your Salesforce org.
+- The CSV file should have the appropriate format for contact details.
+
+## API Integration
+
+- The `ContactUpdater` class integrates with the Cellebrite API at `https://clb-candidates-data-5d5991b93b50.herokuapp.com/getContacts`.
+- Ensure you have the necessary API permissions and network access.
